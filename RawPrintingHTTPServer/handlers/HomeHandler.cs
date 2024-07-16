@@ -1,15 +1,20 @@
-﻿using RawPrintingHTTPServer.requests;
+﻿using Microsoft.Reporting.WinForms;
+using Newtonsoft.Json;
+using RawPrintingHTTPServer.requests;
 using RawPrintingHTTPServer.responses;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
+using System.Windows.Forms;
 
 namespace RawPrintingHTTPServer.handlers
 {
     class HomeHandler
     {
         private RawPrintingHTTPServer server;
+        private ReportDataSource rs = new ReportDataSource();
 
         public HomeHandler(RawPrintingHTTPServer server)
         {
@@ -61,12 +66,15 @@ namespace RawPrintingHTTPServer.handlers
                     {
                         string json = reader.ReadToEnd();
                         PrintJobPostBody printjob = ServerConfig.fromJSON<PrintJobPostBody>(json);
+                        dynamic bodyData = JsonConvert.DeserializeObject(json);
+                        //dynamic kliniks = JsonConvert.DeserializeObject(bodyData.klinik);
+
                         body.Close();
                         reader.Close();
 
-                        byte[] bindata = printjob.DataToByteArray();
+                        //byte[] bindata = printjob.DataToByteArray();
 
-                        bool success = false;
+                        /*bool success = false;
                         if (server.config.testingMode == 1)
                         {
                             success = WritePrintJobFile(printjob.id, bindata);
@@ -78,11 +86,49 @@ namespace RawPrintingHTTPServer.handlers
                         else
                         {
                             success = RawPrintingHelper.SendBytesToPrinter(printjob.printer, bindata, printjob.id) && WritePrintJobFile(printjob.id, bindata);
+                        }*/
+                        LocalReport localReport = new LocalReport();
+                        localReport.ReportPath = Application.StartupPath + "\\Report1.rdlc";
+                        ReportParameter[] rptParams = new ReportParameter[]
+                        {
+                            new ReportParameter("tanggal_jam", bodyData.klinik.nm_klinik.ToString()),
+                            new ReportParameter("nm_klinik", bodyData.klinik.nm_klinik.ToString()),
+                            new ReportParameter("alm_klinik", bodyData.klinik.alm_klinik.ToString()),
+                            new ReportParameter("sip", bodyData.klinik.sip.ToString()),
+                            new ReportParameter("nama", bodyData.pasien.nama.ToString()),
+                            new ReportParameter("umur",bodyData.pasien.umur.ToString()),
+                            new ReportParameter("jk",bodyData.pasien.jk.ToString()),
+                            new ReportParameter("alm_pasien",bodyData.pasien.alamat.ToString()),
+                            new ReportParameter("catatan",bodyData.catatan.ToString()),
+                            new ReportParameter("dokter_nm",bodyData.dokter_nm.ToString()),
+                        };
+                        localReport.SetParameters(rptParams);
+                        List<DataObats> obats = new List<DataObats>();
+                        obats.Clear();
+                        int i = 1;
+                        foreach (var item in bodyData.obats)
+                        {
+                            byte[] dosisby = Encoding.Default.GetBytes(item.dosis.ToString());
+                            string output = Encoding.UTF8.GetString(dosisby);
+                            obats.Add(new DataObats
+                            {
+                                no = i++,
+                                nama = item.nama,
+                                jumlah = item.jml,
+                                dosis = output,
+                                keterangan = item.keterangan
+                            });
                         }
+                        rs.Name = "DataSetRs";
+                        rs.Value = obats;
+                        localReport.DataSources.Add(rs);
+                        string PrinterName = bodyData.printer;
 
-                        accesslog += "\tsuccess\t" + printjob.id + "\t" + printjob.printer;
-                        ServerConfig.appendLog(accesslog);
-                        printjobresp.success = true;
+                        localReport.PrintToPrinter(PrinterName, 0, 0);
+                        //localReport.ReportPath = "C:\\Users\\lenovo-ecang\\source\\repos\\ecangsandy\\RawPrintingHTTPServer\\RawPrintingHTTPServer\\Report1.rdlc";
+                        //accesslog += "\tsuccess\t" + printjob.id + "\t" + printjob.printer;
+                        //ServerConfig.appendLog(accesslog);
+                        //printjobresp.success = true;
                         printjobresp.data = printjob.id;
                     }
                 }
@@ -91,7 +137,7 @@ namespace RawPrintingHTTPServer.handlers
             {
                 ServerConfig.appendLog("Error: " + e.Message + "\n" + e.StackTrace);
                 printjobresp.success = false;
-                printjobresp.data = "";
+                printjobresp.data = ("Error: " + e.Message + "\n" + e.StackTrace);
                 accesslog += "\tfailed";
                 ServerConfig.appendLog(accesslog);
             }
