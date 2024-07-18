@@ -91,7 +91,7 @@ namespace RawPrintingHTTPServer.handlers
                         localReport.ReportPath = Application.StartupPath + "\\Report1.rdlc";
                         ReportParameter[] rptParams = new ReportParameter[]
                         {
-                            new ReportParameter("tanggal_jam", bodyData.klinik.nm_klinik.ToString()),
+                            new ReportParameter("tanggal_jam", bodyData.klinik.tgl_jam_resep.ToString()),
                             new ReportParameter("nm_klinik", bodyData.klinik.nm_klinik.ToString()),
                             new ReportParameter("alm_klinik", bodyData.klinik.alm_klinik.ToString()),
                             new ReportParameter("sip", bodyData.klinik.sip.ToString()),
